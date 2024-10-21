@@ -1,5 +1,4 @@
 use color_eyre::Result;
-use perfcheck::Report;
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
@@ -21,46 +20,36 @@ struct TabContents {
 }
 
 impl TabContents {
-    /// Get the previous tab, if there is no previous tab return the current tab.
+    /// Move to the previous tab (loop move).
     fn previous(&mut self) {
-        if self.cur_tab_idx == 0 {
-            return;
-        }
-        self.cur_tab_idx -= 1;
+        let l = self.reports.len();
+        self.cur_tab_idx = (self.cur_tab_idx + l - 1) % l;
     }
 
-    /// Get the next tab, if there is no next tab return the current tab.
+    /// Move to the next tab, (loop).
     fn next(&mut self) {
-        if self.cur_tab_idx == self.reports.len() - 1 {
-            return;
-        }
-        self.cur_tab_idx += 1;
+        self.cur_tab_idx = (self.cur_tab_idx + 1) % self.reports.len();
     }
 
+    const SELECTED_COLOR: Color = tailwind::GREEN.c900;
     /// orgnize all tab's name as tab title bar
-    fn render_title_bar(&self, area: Rect, buf: &mut Buffer) {
+    fn render_tabs_bar(&self, area: Rect, buf: &mut Buffer) {
         let titles = self.reports.iter().enumerate().map(|(idx, report)| {
-            report
-                .cmdname
-                .clone()
-                .fg(tailwind::SLATE.c200)
-                .bg(self.palette(idx).c900)
+            let cmdstr = report.cmdname.as_str();
+            if idx == self.cur_tab_idx {
+                cmdstr.bg(Self::SELECTED_COLOR).bold()
+            } else {
+                cmdstr.into()
+            }
         });
 
-        let highlight_style = (Color::default(), tailwind::GREEN.c700);
+        let highlight_style = (Color::default(), Self::SELECTED_COLOR);
         Tabs::new(titles)
             .highlight_style(highlight_style)
             .select(self.cur_tab_idx)
             // .padding("", "")
             // .divider(" ")
             .render(area, buf);
-    }
-
-    const fn palette(&self, idx: usize) -> tailwind::Palette {
-        match idx == self.cur_tab_idx {
-            true => tailwind::GREEN,
-            _ => tailwind::GRAY,
-        }
     }
 }
 
@@ -76,7 +65,7 @@ impl Widget for &TabContents {
                 Block::bordered()
                     .border_set(symbols::border::PROPORTIONAL_TALL)
                     .padding(Padding::horizontal(1))
-                    .border_style(self.palette(self.cur_tab_idx).c700),
+                    .border_style(TabContents::SELECTED_COLOR),
             )
             .render(area, buf);
     }
@@ -96,7 +85,7 @@ struct App {
 }
 
 impl App {
-    fn new(reports: Vec<Report>) -> Self {
+    fn new(reports: Vec<perfcheck::Report>) -> Self {
         App {
             state: AppState::Running,
             all_tabs: TabContents {
@@ -146,7 +135,7 @@ fn render_note(area: Rect, buf: &mut Buffer) {
 }
 
 fn render_footer(area: Rect, buf: &mut Buffer) {
-    Line::raw("[◄ ► / h l] to change tab | Press q to quit")
+    Line::raw("Press: [◄ ► / h l] to change tab | [q] to quit")
         .centered()
         .render(area, buf);
 }
@@ -161,7 +150,7 @@ impl Widget for &App {
         let [tabs_area, note_area] = horizontal.areas(header_area);
 
         // self.render_tabs(tabs_area, buf);
-        self.all_tabs.render_title_bar(tabs_area, buf);
+        self.all_tabs.render_tabs_bar(tabs_area, buf);
         render_note(note_area, buf);
         render_footer(footer_area, buf);
         self.all_tabs.render(inner_area, buf);
