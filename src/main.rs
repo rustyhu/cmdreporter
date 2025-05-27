@@ -6,7 +6,7 @@ use ratatui::{
     style::{palette::tailwind, Color, Stylize},
     symbols,
     text::Line,
-    widgets::{Block, Padding, Paragraph, Tabs, Widget},
+    widgets::{Block, Padding, Paragraph, Tabs, Widget, Wrap},
     DefaultTerminal,
 };
 
@@ -67,6 +67,7 @@ impl Widget for &TabContents {
                     .padding(Padding::horizontal(1))
                     .border_style(TabContents::SELECTED_COLOR),
             )
+            .wrap(Wrap { trim: true })
             .render(area, buf);
     }
 }

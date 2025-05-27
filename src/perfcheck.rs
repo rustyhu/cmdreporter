@@ -18,10 +18,10 @@ use std::process::Command;
 const CMDS_LIST: [&str; 9] = [
     "uptime",
     // "dmesg | tail",
-    "vmstat",        // 1 periodic
-    "mpstat -P ALL", // 1 periodic
-    "pidstat",       // 1 periodic
-    "iostat -xz",    // 1 periodic
+    "vmstat 1 3",        // Was "vmstat"
+    "mpstat -P ALL 1 3", // Was "mpstat -P ALL"
+    "pidstat 1 3",       // Was "pidstat"
+    "iostat -xz 1 3",    // Was "iostat -xz"
     "free -m",
     "sar -n DEV 1 2",
     "sar -n TCP,ETCP 1 2",
