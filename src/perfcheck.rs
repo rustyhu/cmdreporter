@@ -18,10 +18,10 @@ use std::process::Command;
 const CMDS_LIST: [&str; 9] = [
     "uptime",
     // "dmesg | tail",
-    "vmstat 1 3",        // Was "vmstat"
-    "mpstat -P ALL 1 3", // Was "mpstat -P ALL"
-    "pidstat 1 3",       // Was "pidstat"
-    "iostat -xz 1 3",    // Was "iostat -xz"
+    "vmstat 1 3",        // 1 delay 3 count
+    "mpstat -P ALL 1 3", // 1 delay 3 count
+    "pidstat 1 3",       // 1 delay 3 count
+    "iostat -xz 1 3",    // 1 delay 3 count
     "free -m",
     "sar -n DEV 1 2",
     "sar -n TCP,ETCP 1 2",
@@ -53,10 +53,7 @@ pub fn collect() -> Vec<Report> {
             // format!("Get CMD {}! args - \"{}\"\n", cmd, args)
             run_cmd(cmd, args)
         } else {
-            format!(
-                "CMD {} not exist. Please recheck or install corresponding packages.",
-                cmd
-            )
+            format!("CMD {cmd} not exist. Please recheck or install corresponding packages.")
         };
 
         rst.push(Report {
@@ -82,6 +79,6 @@ fn run_cmd(cmd: &str, args: &str) -> String {
         .args(args.split_ascii_whitespace())
         .output()
         .expect(&format!("Failed to execute command `{}`", cmd));
-
-    String::from_utf8_lossy(&output.stdout).to_string()
+    // cmd output including TAB characters, leads to print error when showing in tabpages in Ratatui
+    String::from_utf8_lossy(&output.stdout).replace('\t', "    ")
 }
