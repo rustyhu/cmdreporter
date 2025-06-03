@@ -6,7 +6,7 @@ use ratatui::{
     style::{palette::tailwind, Color, Stylize},
     symbols,
     text::Line,
-    widgets::{Block, Padding, Paragraph, Tabs, Widget},
+    widgets::{Block, Padding, Paragraph, Tabs, Widget, Wrap},
     DefaultTerminal,
 };
 
@@ -15,7 +15,6 @@ mod perfcheck;
 #[derive(Default)]
 struct TabContents {
     cur_tab_idx: usize,
-
     reports: Vec<perfcheck::Report>,
 }
 
@@ -55,9 +54,6 @@ impl TabContents {
 
 impl Widget for &TabContents {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // clear first
-        // Clear.render(area, buf);
-
         // these might be separate widgets, currently only use block
         let showtext = self.reports[self.cur_tab_idx].summary.as_str();
         Paragraph::new(showtext)
@@ -67,6 +63,7 @@ impl Widget for &TabContents {
                     .padding(Padding::horizontal(1))
                     .border_style(TabContents::SELECTED_COLOR),
             )
+            .wrap(Wrap { trim: false })
             .render(area, buf);
     }
 }
@@ -107,9 +104,9 @@ impl App {
         if let Event::Key(key) = event::read()? {
             if key.kind == KeyEventKind::Press {
                 match key.code {
-                    KeyCode::Char('l') | KeyCode::Right => self.next_tab(),
-                    KeyCode::Char('h') | KeyCode::Left => self.previous_tab(),
-                    KeyCode::Char('q') | KeyCode::Esc => self.quit(),
+                    KeyCode::Char('l') | KeyCode::Right => self.all_tabs.next(),
+                    KeyCode::Char('h') | KeyCode::Left => self.all_tabs.previous(),
+                    KeyCode::Char('q') | KeyCode::Esc => self.state = AppState::Quitting,
                     _ => {}
                 }
             }
@@ -117,27 +114,15 @@ impl App {
         Ok(())
     }
 
-    pub fn next_tab(&mut self) {
-        self.all_tabs.next();
+    fn render_note(&self, area: Rect, buf: &mut Buffer) {
+        "Perf 60s cmds list".dim().render(area, buf);
     }
 
-    pub fn previous_tab(&mut self) {
-        self.all_tabs.previous();
+    fn render_footer(&self, area: Rect, buf: &mut Buffer) {
+        Line::raw("Press: [◄ ► / h l] to change tab | [q] to quit")
+            .centered()
+            .render(area, buf);
     }
-
-    pub fn quit(&mut self) {
-        self.state = AppState::Quitting;
-    }
-}
-
-fn render_note(area: Rect, buf: &mut Buffer) {
-    "Perf 60s cmds list".dim().render(area, buf);
-}
-
-fn render_footer(area: Rect, buf: &mut Buffer) {
-    Line::raw("Press: [◄ ► / h l] to change tab | [q] to quit")
-        .centered()
-        .render(area, buf);
 }
 
 impl Widget for &App {
@@ -151,18 +136,20 @@ impl Widget for &App {
 
         // self.render_tabs(tabs_area, buf);
         self.all_tabs.render_tabs_bar(tabs_area, buf);
-        render_note(note_area, buf);
-        render_footer(footer_area, buf);
+        self.render_note(note_area, buf);
+        self.render_footer(footer_area, buf);
         self.all_tabs.render(inner_area, buf);
     }
 }
 
 fn main() -> Result<()> {
     color_eyre::install()?;
+
     println!("Start to collect results of perf checks...");
     let reports = perfcheck::collect();
-    let app = App::new(reports);
 
+    // TUI start
+    let app = App::new(reports);
     let terminal = ratatui::init();
     let app_result = app.run(terminal);
     ratatui::restore();
