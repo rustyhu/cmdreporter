@@ -15,7 +15,7 @@ mod perfcheck;
 #[derive(Default)]
 struct TabContents {
     cur_tab_idx: usize,
-    reports: Vec<perfcheck::Report>,
+    reports: Vec<perfcheck::CmdOutput>,
 }
 
 impl TabContents {
@@ -82,7 +82,7 @@ struct App {
 }
 
 impl App {
-    fn new(reports: Vec<perfcheck::Report>) -> Self {
+    fn new(reports: Vec<perfcheck::CmdOutput>) -> Self {
         App {
             state: AppState::Running,
             all_tabs: TabContents {
@@ -115,7 +115,7 @@ impl App {
     }
 
     fn render_note(&self, area: Rect, buf: &mut Buffer) {
-        "Perf 60s cmds list".dim().render(area, buf);
+        "Commands List".dim().render(area, buf);
     }
 
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
@@ -145,11 +145,11 @@ impl Widget for &App {
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    println!("Start to collect results of perf checks...");
-    let reports = perfcheck::collect();
+    println!("Start to collect results of commands...");
+    let cmd_outputs = perfcheck::collect()?;
 
     // TUI start
-    let app = App::new(reports);
+    let app = App::new(cmd_outputs);
     let terminal = ratatui::init();
     let app_result = app.run(terminal);
     ratatui::restore();

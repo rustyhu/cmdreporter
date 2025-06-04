@@ -1,69 +1,58 @@
-//! Follow the guide of [Linux Performance Analysis in 60,000 Milliseconds](https://www.brendangregg.com/Articles/Netflix_Linux_Perf_Analysis_60s.pdf).
-//!
-//! Commands list:
-//! - uptime
-//! - dmesg | tail
-//! - vmstat 1
-//! - mpstat -P ALL 1
-//! - pidstat 1
-//! - iostat -xz 1
-//! - free -m
-//! - sar -n DEV 1
-//! - sar -n TCP,ETCP 1
-//! - top
+use color_eyre::Result;
 
-use std::process::Command;
-
-// should be executed sequentially, not concurrently.
-const CMDS_LIST: [&str; 9] = [
-    "uptime",
-    // "dmesg | tail",
-    "vmstat 1 3",        // 1 delay 3 count
-    "mpstat -P ALL 1 3", // 1 delay 3 count
-    "pidstat 1 3",       // 1 delay 3 count
-    "iostat -xz 1 3",    // 1 delay 3 count
-    "free -m",
-    "sar -n DEV 1 2",
-    "sar -n TCP,ETCP 1 2",
-    "top -b -n 1",
-];
-
-pub struct Report {
+pub struct CmdOutput {
     pub cmdname: String,
     pub summary: String,
 }
 
 // current let's collect static data first
-pub fn collect() -> Vec<Report> {
+pub fn collect() -> Result<Vec<CmdOutput>> {
+    // Read the commands list from a file
+    let cmds_list = read_cmds_from_file("cmds.sh")?;
+
+    // executed sequentially, not concurrently.
     let mut rst = Vec::new();
-    for cmdline in CMDS_LIST.iter() {
-        let (cmd, args);
-        match cmdline.trim().split_once(' ') {
-            Some((c, a)) => {
-                cmd = c;
-                args = a;
-            }
-            None => {
-                cmd = cmdline;
-                args = "";
-            }
-        }
+    for cmdline in cmds_list.iter() {
+        let (cmd, args) = cmdline.trim().split_once(' ').unwrap_or((cmdline, ""));
 
         let info = if whether_cmd_exist(cmd) {
-            // format!("Get CMD {}! args - \"{}\"\n", cmd, args)
             run_cmd(cmd, args)
         } else {
             format!("CMD {cmd} not exist. Please recheck or install corresponding packages.")
         };
 
-        rst.push(Report {
+        rst.push(CmdOutput {
             cmdname: cmd.into(),
             summary: info,
         });
     }
-    rst
-    // run_cmd("top", "-b -n 1")
+    Ok(rst)
 }
+
+fn read_cmds_from_file(filename: &str) -> Result<Vec<String>> {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+
+    let file = File::open(filename)?;
+    let reader = BufReader::new(file);
+    let list = reader
+        .lines()
+        .filter_map(|line| {
+            line.map(|l| {
+                l.split_once('#')
+                    .map(|(content, _comment)| content.trim())
+                    .unwrap_or(l.trim())
+                    .to_string()
+            })
+            .ok()
+        })
+        .filter(|line| !line.is_empty())
+        .collect();
+
+    Ok(list)
+}
+
+use std::process::Command;
 
 fn whether_cmd_exist(cmd: &str) -> bool {
     Command::new("which")
