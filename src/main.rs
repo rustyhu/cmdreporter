@@ -10,12 +10,12 @@ use ratatui::{
     DefaultTerminal,
 };
 
-mod perfcheck;
+mod cmdrunner;
 
 #[derive(Default)]
 struct TabContents {
     cur_tab_idx: usize,
-    reports: Vec<perfcheck::CmdOutput>,
+    reports: Vec<cmdrunner::CmdOutput>,
 }
 
 impl TabContents {
@@ -82,7 +82,7 @@ struct App {
 }
 
 impl App {
-    fn new(reports: Vec<perfcheck::CmdOutput>) -> Self {
+    fn new(reports: Vec<cmdrunner::CmdOutput>) -> Self {
         App {
             state: AppState::Running,
             all_tabs: TabContents {
@@ -146,7 +146,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     println!("Start to collect results of commands...");
-    let cmd_outputs = perfcheck::collect()?;
+    let cmd_outputs = cmdrunner::collect()?;
 
     // TUI start
     let app = App::new(cmd_outputs);
