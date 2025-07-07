@@ -1,30 +1,35 @@
 use color_eyre::Result;
+use std::thread;
 
 pub struct CmdOutput {
     pub cmdname: String,
     pub summary: String,
 }
 
-// current let's collect static data first
-pub fn collect() -> Result<Vec<CmdOutput>> {
-    // Read the commands list from a file
+pub fn collect(parallel: bool) -> Result<Vec<CmdOutput>> {
     let cmds_list = read_cmds_from_file("cmds.sh")?;
 
-    // executed sequentially, not concurrently.
+    // run cmds: default sequentially, optionally parallelly.
     let mut rst = Vec::new();
-    for cmdline in cmds_list.iter() {
-        let (cmd, args) = cmdline.trim().split_once(' ').unwrap_or((cmdline, ""));
+    if parallel {
+        let handles: Vec<_> = cmds_list
+            .iter()
+            .map(|cmdline| {
+                let cmdline = cmdline.clone();
+                thread::spawn(move || run_single_cmd(&cmdline))
+            })
+            .collect();
 
-        let info = if check_which_cmd(cmd) {
-            run_cmd(cmd, args)
-        } else {
-            format!("CMD {cmd} not exist. Please recheck or install corresponding packages.")
-        };
-
-        rst.push(CmdOutput {
-            cmdname: cmd.into(),
-            summary: info,
-        });
+        // from all threads
+        for handle in handles {
+            if let Ok(cmd_output) = handle.join() {
+                rst.push(cmd_output);
+            }
+        }
+    } else {
+        for cmdline in cmds_list.iter() {
+            rst.push(run_single_cmd(cmdline));
+        }
     }
     Ok(rst)
 }
@@ -50,6 +55,21 @@ fn read_cmds_from_file(filename: &str) -> Result<Vec<String>> {
         .collect();
 
     Ok(list)
+}
+
+fn run_single_cmd(cmdline: &str) -> CmdOutput {
+    println!("\x1b[34m Running [{cmdline}] ... \x1b[0m");
+    let (cmd, args) = cmdline.trim().split_once(' ').unwrap_or((cmdline, ""));
+    let info = if check_which_cmd(cmd) {
+        run_cmd(cmd, args)
+    } else {
+        format!("CMD {cmd} not exist. Please recheck or install corresponding packages.")
+    };
+
+    CmdOutput {
+        cmdname: cmd.into(),
+        summary: info,
+    }
 }
 
 use std::process::Command;

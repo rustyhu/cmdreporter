@@ -145,8 +145,12 @@ impl Widget for &App {
 fn main() -> Result<()> {
     color_eyre::install()?;
 
+    // Parse command line arguments
+    let args: Vec<String> = std::env::args().collect();
+    let parallel = args.iter().any(|arg| arg == "-p" || arg == "--parallel");
+
     println!("Start to collect results of commands...");
-    let cmd_outputs = cmdrunner::collect()?;
+    let cmd_outputs = cmdrunner::collect(parallel)?;
 
     // TUI start
     let app = App::new(cmd_outputs);
